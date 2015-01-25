@@ -1,0 +1,5 @@
+D:\Deepak\Projects\Non-Work\Code\Working\ScienceHackathon\Test1\Test1\Test1\bin\Test1.dll
+D:\Deepak\Projects\Non-Work\Code\Working\ScienceHackathon\Test1\Test1\Test1\bin\Test1.pdb
+D:\Deepak\Projects\Non-Work\Code\Working\ScienceHackathon\Test1\Test1\Test1\obj\Debug\Test1.csprojResolveAssemblyReference.cache
+D:\Deepak\Projects\Non-Work\Code\Working\ScienceHackathon\Test1\Test1\Test1\obj\Debug\Test1.dll
+D:\Deepak\Projects\Non-Work\Code\Working\ScienceHackathon\Test1\Test1\Test1\obj\Debug\Test1.pdb

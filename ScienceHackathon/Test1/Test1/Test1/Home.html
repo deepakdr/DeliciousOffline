@@ -1,0 +1,354 @@
+﻿<!DOCTYPE html>
+<html manifest="offline.appcache" xmlns="http://www.w3.org/1999/xhtml">
+<head >
+    <title>Delicious Offline</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable = no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+   <link rel="icon" sizes="192x192" href="images/logo.png"/>
+    <script src="scripts/jquery-2.1.1.js"></script>
+    <script src="scripts/app.js"></script>
+    <script src="scripts/xml2json.min.js"></script>
+    <script src="scripts/handlebars-v2.0.0.js"></script>
+    <script src="scripts/jqueryui/jquery-ui.min.js"></script>
+    <link href="styles/site.css" rel="stylesheet" />
+    <link href="scripts/jqueryui/jquery-ui.min.css" rel="stylesheet" />
+    <script id="item-template" type="text/x-handlebars-template">
+            <section data-hash={{_hash}} class="itemContainer" >
+
+        <img data-isoffline="{{_isOffline}}" class="downloadImage" src="{{_src}}" alt="" />
+        <h3 class="specialh3"> {{_description}} </h3>
+        <article class="hiddenArticle">
+    
+        </article>
+              <a class="noEffectAnchor" href="{{_href}}">{{_href}}</a>
+                <div class="tagPlacer">{{_tag}}</div>
+            </section>
+    </script>
+    <script>
+
+     
+
+       
+
+        var accessToken;
+        var notpossibleImage = "images/notpossible.png";
+        var viewImage = "images/view.png";
+        var downloadImage = "images/download.png";
+
+        $(document).ready(function () {
+            accessToken = localStorage.getItem("accessToken");
+            storeTags = localStorage.getItem("tags");
+            setTimeout(function () {
+                $("#splashScreen").fadeOut(500);
+            }, 2000);
+            if (storeTags) {
+                availableTags = storeTags.split(",");
+
+            }
+            else {
+                availableTags = [];
+            }
+            
+            fnInitialize();
+            if (window.navigator.onLine === false) {
+               
+                fnBindLocalStorage();
+                $("footer").find("span").text("Working offline").addClass("offlineStyle");
+               
+                $("img").each(function (index, element) {
+                    if (element.src.indexOf("notpossible")>=0 || element.src.indexOf("download")>=0) {
+                        element.src = "";
+                    }
+                });
+                return;
+            }
+            if (accessToken) {
+                fnGetBookMarkList();
+                fnGetTags();
+            }
+            else {
+                var code = getParameterByName("code");
+                if (code) {
+                    var options = {
+                        url: "https://avosapi.delicious.com/api/v1/oauth/token?client_id=257e09704536e0caa3bf3a99cb3f2494&client_secret=a4b2f5a5b81050c69feb94f231369533&grant_type=code&code=" + code,
+                        type: "POST"
+                    }
+
+                    $.ajax(options).done(function (data) {
+
+                        accessToken = data.access_token;
+                        localStorage.setItem("accessToken", accessToken);
+                        if (data.error === "request token expired") {
+                            fnRedirect();
+                        }
+                        else {
+                            fnGetBookMarkList();
+                        }
+
+                    }).fail(function () {
+                        //to handle failure
+                    })
+                }
+                else {
+                    fnRedirect();
+                }
+            }
+
+
+
+        });
+
+        function fnTagSelected(event, ui) {
+
+            var linklists = localStorage.getItem("links");
+            if (linklists) {
+                linklists = JSON.parse(linklists);
+               
+                var selTag = ui.item.value;
+                var filteredArr = [];
+                filteredArr = jQuery.grep(linklists.posts.post, function (n, i) {
+                   
+                    return (n._tag.indexOf(selTag.trim())>=0);
+                });
+
+                fnBindFilteredData(filteredArr);
+            }
+
+        }
+
+        function fnBindFilteredData(arr)
+        {
+            $("#bookmarksContainer").empty();
+            var html = "";
+
+            $(arr).each(function (index, element) {
+                var source = $("#item-template").html();
+                var template = Handlebars.compile(source);
+                var context = element;
+                html = html + template(context);
+            });
+            $("#bookmarksContainer").append(html);
+            fnAddClickForDownload();
+        }
+        function fnBindLocalStorage() {
+            var linklists = localStorage.getItem("links");
+            if (linklists) {
+                linklists = JSON.parse(linklists);
+                fnBindFilteredData(linklists.posts.post);
+            }
+        }
+        function fnInitialize() {
+
+            $("#search").on("search", function () {
+                if($(this).val()==="")
+                {
+                    fnBindLocalStorage();
+                }
+                
+            })
+            $("#search").autocomplete({
+                source: availableTags,
+                select: fnTagSelected
+            });
+            $("#addContainer").hide();
+            $("#btnBookmarksTab").click(function () {
+                fnToggleTab(this);
+                $("#bookmarksContainer").show();
+                $("#addContainer").hide();
+
+            });
+            $("#btnAddTab").click(function () {
+                fnToggleTab(this);
+                $("#bookmarksContainer").hide();
+                $("#addContainer").show();
+            });
+
+            $("#addBookmarkform").submit(fnAddBookmark);
+        }
+
+        function fnToggleTab(obj) {
+            $(".tabButton").removeClass("tabSelectedButton");
+            $(obj).addClass("tabSelectedButton");
+        }
+
+        function fnRedirect() {
+            window.location = "https://delicious.com/auth/authorize?client_id=257e09704536e0caa3bf3a99cb3f2494&redirect_uri=http://localhost:8888/home.html";
+        }
+
+        function fnGetBookMarkList() {
+            var options = {
+                url: "http://localhost:8888/deliciouswrapper/api/delicious/GetAllBookmarks/" + accessToken,
+                type: "GET"
+            }
+
+            $.ajax(options).done(function (data) {
+                var x2js = new X2JS();
+                var jsonObj = x2js.xml_str2json(data);
+                var html = "";
+                if (jsonObj !== "No Data Available") {
+                    $(jsonObj.posts.post).each(function (index, element) {
+                        var source = $("#item-template").html();
+                        var template = Handlebars.compile(source);
+                        var content = localStorage.getItem(element._hash);
+                        if (content) {
+                            if (content === "NOT POSSIBLE") {
+                                element._src = notpossibleImage;
+                                element._isOffline = "notpossible";
+                            }
+                            else {
+                                element._src = viewImage;
+                                element._isOffline = "available";
+                            }
+
+                        } else {
+                            element._src = downloadImage;
+                            element._isOffline = "notavailable";
+
+                        }
+                        var context = element;
+                        html = html + template(context);
+
+                    })
+                }
+              
+                //store the returned array
+                localStorage.setItem("links",JSON.stringify(jsonObj));
+
+                $("#bookmarksContainer").append(html);
+                fnAddClickForDownload();
+            });
+        }
+
+        function fnAddClickForDownload() {
+            $("img").click(function () {
+                var parent = $(this).parent();
+                var hashKey = parent.data("hash");
+                var img = this;
+                $("article").removeClass("offlineArticle");
+                $("article").text("");
+                if ($(this).data("isoffline") == "available") {
+
+                    var article = $(this).parent().find("article")
+                    article.append(localStorage.getItem(hashKey));
+                    article.addClass("offlineArticle");
+                }
+                else if ($(this).data("isoffline") == "notavailable") {
+                    var url = $(this).parent().find("a").attr("href");
+                    $(img).attr("src", "images/ajax-loader.gif");
+                    var options = {
+                        type: "GET",
+                        url: "http://localhost:8888/deliciouswrapper/api/delicious/GetSiteContent/?code=" + encodeURIComponent(url),
+
+                    }
+                    $.ajax(options).done(function (data) {
+                        var content = $(data).find("article").html(); //TODO: put a check if it is empty
+
+                        if (typeof content === "undefined") {
+                            $(img).attr("src", notpossibleImage);
+                            $(img).data("isoffline", "notpossible");
+                            content = "NOT POSSIBLE";
+                        }
+                        else {
+                            $(img).attr("src", viewImage);
+                            $(img).data("isoffline", "available");
+
+
+                        }
+                        localStorage.setItem(hashKey, content);
+
+
+                    }).fail(function () {
+
+                    });
+                }
+            });
+        }
+        function fnAddBookmark() {
+            var linkurl = $("#linkUrl").val();
+            var desc = $("#linkDescription").val();
+            var tag = $("#linkTag").val();
+            //var code = encodeURIComponent("https://api.del.icio.us/v1/tags/v1/posts/add?&url=" + linkurl + "&description=" + desc + "&tags=" + tag);
+
+            var options = {
+                url: "http://localhost:8888/deliciouswrapper/api/delicious/AddLink",
+                type:"POST",
+                data: {
+                    "URL": linkurl,
+                    "Description": desc,
+                    "Tags": tag,
+                    "AccessToken":accessToken,
+
+                },
+                dataType: "application/json",
+                
+            }
+           
+            $.ajax(options).done(linkSavedSuccess);
+
+            return false;
+        }
+        function linkSavedSuccess(data) {
+
+            alert("Saved...");
+            fnGetBookMarkList();
+            $("#btnBookmarksTab").click();
+        }
+
+        function fnGetTags() {
+            var options = {
+                url: "http://localhost:8888/deliciouswrapper/api/delicious/GetAllTags/" + accessToken,
+                type: "GET"
+            }
+
+            $.ajax(options).done(function (data) {
+                var x2js = new X2JS();
+                var jsonObj = x2js.xml_str2json(data);
+
+                if (jsonObj !== "No Data Available") {
+                    var localstoretags = new Array();
+                    $(jsonObj.tags.tag).each(function (index, element) {
+                        localstoretags.push(element._tag);
+                    })
+                    localStorage.setItem("tags", localstoretags);
+                }
+            });
+        }
+    </script>
+</head>
+<body style="margin:0px;padding:0px">
+    <div id="splashScreen">
+    <img src="images/logobranding.png" class="splashImage" alt="" /></div>
+
+
+
+    <div><img src="images/logobranding.png" style="width: 50px;float: left;" alt="" /></div>
+    <div class="searchHolder" id="searchBar">
+        <input type="search" class="searchInput" id="search" placeholder="search by tag.." />
+    </div>
+    <div>
+        <button class="tabSelectedButton tabButton " id="btnBookmarksTab">Bookmarks</button>
+        <button class="tabButton" id="btnAddTab">Add Link</button>
+    </div>
+    <div id="bookmarksContainer">
+    </div>
+    <div id="addContainer">
+        <form id="addBookmarkform">
+        <div>
+        <input class="inputAddLink" required type="url" placeholder="URL" id="linkUrl" /></div>
+        <div>
+        <input class="inputAddLink" required type="text" id="linkDescription" placeholder="Description..." /></div>
+        <div>
+        <input class="inputAddLink"  type="text" id="linkTag" placeholder="Tags" /></div>
+        <div style="text-align:center">
+            <span><input type="checkbox"   /><span>Download for offline viewing</span> </span>
+
+            <span><input class="addLinkButton" style="background-color:green" type="submit" id="btnAdd" value="Add" /> </span>
+
+        </div>
+            </form>
+    </div>
+    <footer>
+        <span></span>
+    </footer>
+</body>
+</html>

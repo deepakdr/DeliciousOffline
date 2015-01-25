@@ -1,0 +1,29 @@
+﻿CACHE MANIFEST
+#Version 1.1
+
+#WHAT FILES TO BE CACHED
+CACHE:
+
+scripts/jquery-2.1.1.js
+scripts/app.js
+scripts/xml2json.min.js
+scripts/handlebars-v2.0.0.js
+scripts/jqueryui/jquery-ui.min.js
+styles/site.css
+scripts/jqueryui/jquery-ui.min.css
+
+images/download.png
+images/logobranding.png
+images/notpossible.png
+images/view.png
+images/ajax-loader.gif
+
+
+
+
+NETWORK:
+*
+
+
+FALLBACK:
+
